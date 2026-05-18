@@ -51,14 +51,18 @@ def generate_answer(question: str, sources: list[dict[str, Any]]) -> str:
         raise DeepSeekAPIError("DeepSeek API returned an unexpected response") from exc
 
 
-def _build_messages(question: str, sources: list[dict[str, Any]]) -> list[dict[str, str]]:
-    context = "\n\n".join(
+def build_context(sources: list[dict[str, Any]]) -> str:
+    return "\n\n".join(
         (
             f"[{source['citation']}] 文件：{source['filename']} / "
             f"分块：{source['index']} / 相似度：{source['score']}\n{source['text']}"
         )
         for source in sources
     )
+
+
+def _build_messages(question: str, sources: list[dict[str, Any]]) -> list[dict[str, str]]:
+    context = build_context(sources)
 
     return [
         {

@@ -178,7 +178,7 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: trimmedQuestion, top_k: 5 }),
+        body: JSON.stringify({ question: trimmedQuestion, top_k: 5, debug: true }),
       });
       const data = await response.json();
 
@@ -317,6 +317,28 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                {askResult.debug ? (
+                  <details className="debug-panel">
+                    <summary>调试信息</summary>
+                    <div className="debug-stats">
+                      <span>search {askResult.debug.search_ms} ms</span>
+                      <span>llm {askResult.debug.llm_ms} ms</span>
+                      <span>total {askResult.debug.total_ms} ms</span>
+                      <span>{askResult.debug.source_count} sources</span>
+                    </div>
+                    <div className="debug-sources">
+                      {askResult.debug.sources.map((source) => (
+                        <div className="debug-source" key={source.chunk_id}>
+                          <strong>
+                            [{source.citation}] {source.filename} / 分块 {source.index}
+                          </strong>
+                          <span>score {source.score.toFixed(3)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <pre className="debug-context">{askResult.debug.context}</pre>
+                  </details>
+                ) : null}
               </section>
             ) : null}
 

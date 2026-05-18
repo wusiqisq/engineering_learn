@@ -164,6 +164,31 @@ def test_ask_uses_search_results_as_sources() -> None:
     assert data["answer"] == "answer for What does RAG use? from rag.md [1]"
     assert data["sources"][0]["citation"] == 1
     assert data["sources"][0]["filename"] == "rag.md"
+    assert data["debug"] is None
+
+
+def test_ask_can_return_debug_info() -> None:
+    client.post(
+        "/documents",
+        files={
+            "file": (
+                "rag.md",
+                b"RAG debug data includes retrieved context.",
+                "text/markdown",
+            )
+        },
+    )
+
+    response = client.post("/ask", json={"question": "What does debug include?", "top_k": 1, "debug": True})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["debug"]["source_count"] == 1
+    assert data["debug"]["search_ms"] >= 0
+    assert data["debug"]["llm_ms"] >= 0
+    assert data["debug"]["total_ms"] >= 0
+    assert "[1] 文件：rag.md" in data["debug"]["context"]
+    assert data["debug"]["sources"][0]["citation"] == 1
 
 
 def test_ask_rejects_blank_question() -> None:

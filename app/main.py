@@ -1,6 +1,8 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
+from time import perf_counter
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,11 +21,13 @@ from app.database import (
     save_document,
     update_chunk_embedding,
 )
-from app.deepseek import DeepSeekAPIError, DeepSeekConfigError, generate_answer
+from app.deepseek import DeepSeekAPIError, DeepSeekConfigError, build_context, generate_answer
 from app.embeddings import cosine_similarity, embed_texts
 
 
 SUPPORTED_EXTENSIONS = {".md", ".txt"}
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("rag_project")
 
 
 @asynccontextmanager
@@ -89,12 +93,23 @@ class SearchResponse(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1)
     top_k: int = Field(default=5, ge=1, le=20)
+    debug: bool = False
+
+
+class AskDebug(BaseModel):
+    search_ms: float
+    llm_ms: float
+    total_ms: float
+    source_count: int
+    context: str
+    sources: list[SearchResult]
 
 
 class AskResponse(BaseModel):
     question: str
     answer: str
     sources: list[SearchResult]
+    debug: AskDebug | None = None
 
 
 @app.get("/")
@@ -164,23 +179,58 @@ def search_documents(request: SearchRequest) -> SearchResponse:
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest) -> AskResponse:
+    total_start = perf_counter()
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
+    search_start = perf_counter()
     sources = _search_chunks(question, request.top_k)
+    search_ms = _elapsed_ms(search_start)
     if not sources:
-        return AskResponse(question=question, answer="没有找到可用于回答的资料。", sources=[])
+        total_ms = _elapsed_ms(total_start)
+        logger.info(
+            "ask no_sources question=%r top_k=%s search_ms=%.2f total_ms=%.2f",
+            question,
+            request.top_k,
+            search_ms,
+            total_ms,
+        )
+        return AskResponse(
+            question=question,
+            answer="没有找到可用于回答的资料。",
+            sources=[],
+            debug=_build_debug(request.debug, search_ms, 0.0, total_ms, "", []),
+        )
 
     cited_sources = _add_citations(sources)
+    context = build_context([source.model_dump() for source in cited_sources])
     try:
+        llm_start = perf_counter()
         answer = _generate_answer(question, cited_sources)
+        llm_ms = _elapsed_ms(llm_start)
     except DeepSeekConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except DeepSeekAPIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return AskResponse(question=question, answer=answer, sources=cited_sources)
+    total_ms = _elapsed_ms(total_start)
+    logger.info(
+        "ask question=%r top_k=%s sources=%s scores=%s search_ms=%.2f llm_ms=%.2f total_ms=%.2f",
+        question,
+        request.top_k,
+        len(cited_sources),
+        [source.score for source in cited_sources],
+        search_ms,
+        llm_ms,
+        total_ms,
+    )
+    return AskResponse(
+        question=question,
+        answer=answer,
+        sources=cited_sources,
+        debug=_build_debug(request.debug, search_ms, llm_ms, total_ms, context, cited_sources),
+    )
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
@@ -236,3 +286,28 @@ def _add_citations(sources: list[SearchResult]) -> list[SearchResult]:
         source.model_copy(update={"citation": index})
         for index, source in enumerate(sources, start=1)
     ]
+
+
+def _elapsed_ms(start: float) -> float:
+    return round((perf_counter() - start) * 1000, 2)
+
+
+def _build_debug(
+    enabled: bool,
+    search_ms: float,
+    llm_ms: float,
+    total_ms: float,
+    context: str,
+    sources: list[SearchResult],
+) -> AskDebug | None:
+    if not enabled:
+        return None
+
+    return AskDebug(
+        search_ms=search_ms,
+        llm_ms=llm_ms,
+        total_ms=total_ms,
+        source_count=len(sources),
+        context=context,
+        sources=sources,
+    )

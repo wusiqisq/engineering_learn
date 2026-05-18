@@ -355,6 +355,65 @@ h2 {
   background: #e0f2f1;
 }
 
+.debug-panel {
+  margin-top: 14px;
+  border: 1px solid #d8e2ec;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.debug-panel summary {
+  padding: 10px 12px;
+  color: #29465d;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.debug-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.debug-stats span {
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #29465d;
+  background: #eaf1f7;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.debug-sources {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.debug-source {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e2eaf2;
+  border-radius: 8px;
+  color: #29465d;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.debug-source strong {
+  overflow-wrap: anywhere;
+}
+
+.debug-context {
+  max-height: 360px;
+  border-top: 1px solid #e2eaf2;
+  background: #f8fafc;
+  font-size: 12px;
+}
+
 .detail-empty {
   display: flex;
   min-height: 180px;

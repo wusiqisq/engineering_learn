@@ -19,6 +19,8 @@
 - `POST /ask` RAG 问答
 - 回答引用来源编号
 - 前端来源跳转和 chunk 高亮
+- `debug: true` 调试信息
+- 后端 ask 日志
 
 ## 后端运行方式
 
@@ -126,6 +128,26 @@ chunks：保存每个文档拆出来的文本块和 embedding
 }
 ```
 
+返回：
+
+```json
+{
+  "query": "怎么运行测试",
+  "results": [
+    {
+      "citation": null,
+      "document_id": 1,
+      "filename": "README.md",
+      "chunk_id": 1,
+      "index": 1,
+      "text": "chunk text",
+      "char_count": 100,
+      "score": 0.42
+    }
+  ]
+}
+```
+
 ## DeepSeek 配置
 
 复制示例配置：
@@ -149,7 +171,8 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 ```json
 {
   "question": "这个项目怎么运行测试？",
-  "top_k": 5
+  "top_k": 5,
+  "debug": true
 }
 ```
 
@@ -170,26 +193,22 @@ DEEPSEEK_MODEL=deepseek-v4-flash
       "char_count": 100,
       "score": 0.42
     }
-  ]
-}
-```
-
-返回：
-
-```json
-{
-  "query": "怎么运行测试",
-  "results": [
-    {
-      "document_id": 1,
-      "filename": "README.md",
-      "chunk_id": 1,
-      "index": 1,
-      "text": "chunk text",
-      "char_count": 100,
-      "score": 0.42
+  ],
+  "debug": {
+    "search_ms": 2.1,
+    "llm_ms": 630.4,
+    "total_ms": 632.5,
+    "source_count": 1,
+    "context": "[1] 文件：README.md / 分块：1 / 相似度：0.42\nchunk text",
+    "sources": [
+      {
+        "citation": 1,
+        "filename": "README.md",
+        "score": 0.42
+      }
+    ]
     }
-  ]
+  }
 }
 ```
 
@@ -204,5 +223,5 @@ pytest
 下一轮可以改进 RAG 质量：
 
 - 把 hash embedding 替换成真正的 embedding 模型
-- 增加日志和错误提示
 - 增加对话历史
+- 保存 ask 历史记录
