@@ -125,6 +125,19 @@ def get_document(document_id: int, db_path: Path = DEFAULT_DATABASE_PATH) -> dic
     return document
 
 
+def delete_document(document_id: int, db_path: Path = DEFAULT_DATABASE_PATH) -> bool:
+    with _connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            DELETE FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        )
+
+    return cursor.rowcount > 0
+
+
 def list_chunks(document_id: int, db_path: Path = DEFAULT_DATABASE_PATH) -> list[dict[str, Any]]:
     with _connect(db_path) as connection:
         rows = connection.execute(

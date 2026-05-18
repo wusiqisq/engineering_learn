@@ -286,6 +286,11 @@ h2 {
   text-align: left;
 }
 
+.document-row {
+  position: relative;
+  padding-right: 42px;
+}
+
 .document-row.active,
 .document-row:hover,
 .log-row:hover {
@@ -303,6 +308,24 @@ h2 {
 .log-row small {
   color: #607488;
   font-size: 12px;
+}
+
+.delete-document-button {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #8a3d2e;
+  cursor: pointer;
+}
+
+.delete-document-button:hover {
+  background: #f5dfd8;
 }
 
 .empty-state {

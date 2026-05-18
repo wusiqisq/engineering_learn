@@ -1,4 +1,4 @@
-import { Bot, Clock, Database, FileSearch, FileText, Loader2, RefreshCw, Search, Send, UploadCloud, XCircle } from "lucide-react";
+import { Bot, Clock, Database, FileSearch, FileText, Loader2, RefreshCw, Search, Send, Trash2, UploadCloud, XCircle } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -114,6 +114,35 @@ export default function App() {
       setResult(data);
     } catch (loadError) {
       setError(loadError.message);
+    }
+  }
+
+  async function deleteDocument(event, document) {
+    event.stopPropagation();
+    if (!window.confirm(`删除文档 ${document.filename}？`)) {
+      return;
+    }
+
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/documents/${document.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail ?? "删除文档失败");
+      }
+
+      if (activeDocumentId === document.id) {
+        setActiveDocumentId(null);
+        setHighlightChunkId(null);
+        setResult(null);
+      }
+      setSearchResults([]);
+      await loadDocuments();
+    } catch (deleteError) {
+      setError(deleteError.message);
     }
   }
 
@@ -330,8 +359,22 @@ export default function App() {
                   type="button"
                   onClick={() => loadDocumentDetail(document.id)}
                 >
-                  <span>{document.filename}</span>
+                  <span className="document-name">{document.filename}</span>
                   <small>{document.chunk_count} chunks</small>
+                  <span
+                    className="delete-document-button"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`删除 ${document.filename}`}
+                    onClick={(event) => deleteDocument(event, document)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        deleteDocument(event, document);
+                      }
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </span>
                 </button>
               ))}
             </div>

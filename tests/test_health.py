@@ -114,6 +114,29 @@ def test_get_missing_document_returns_404() -> None:
     assert response.json()["detail"] == "Document not found"
 
 
+def test_delete_document_removes_document_and_chunks() -> None:
+    upload_response = client.post(
+        "/documents",
+        files={"file": ("delete-me.md", b"SQLite database delete test.", "text/markdown")},
+    )
+    document_id = upload_response.json()["id"]
+
+    delete_response = client.delete(f"/documents/{document_id}")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"deleted": True}
+    assert client.get(f"/documents/{document_id}").status_code == 404
+    search_response = client.post("/search", json={"query": "database", "top_k": 5})
+    assert search_response.json()["results"] == []
+
+
+def test_delete_missing_document_returns_404() -> None:
+    response = client.delete("/documents/999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document not found"
+
+
 def test_search_returns_most_similar_chunks() -> None:
     content = f"{'Python testing notes. ' * 50}\n\n{'SQLite database storage notes. ' * 50}"
     client.post(

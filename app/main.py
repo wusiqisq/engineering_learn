@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.chunking import chunk_text
 from app.database import (
     DEFAULT_DATABASE_PATH,
+    delete_document,
     deserialize_embedding,
     get_ask_log,
     get_document,
@@ -70,6 +71,10 @@ class DocumentSummary(BaseModel):
 
 class DocumentDetail(DocumentSummary):
     chunks: list[DocumentChunk]
+
+
+class DeleteResponse(BaseModel):
+    deleted: bool
 
 
 class SearchRequest(BaseModel):
@@ -200,6 +205,15 @@ def get_document_chunks(document_id: int) -> list[DocumentChunk]:
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return [DocumentChunk(**chunk) for chunk in list_chunks(document_id, app.state.database_path)]
+
+
+@app.delete("/documents/{document_id}", response_model=DeleteResponse)
+def remove_document(document_id: int) -> DeleteResponse:
+    init_database(app.state.database_path)
+    deleted = delete_document(document_id, app.state.database_path)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return DeleteResponse(deleted=True)
 
 
 @app.post("/search", response_model=SearchResponse)

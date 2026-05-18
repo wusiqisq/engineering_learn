@@ -25,6 +25,7 @@
 - 后端 ask 日志
 - SQLite 保存 ask 日志
 - 前端问答日志列表和详情
+- 删除文档和级联删除 chunks
 
 ## 后端运行方式
 
@@ -78,6 +79,7 @@ POST /documents
 GET /documents
 GET /documents/{document_id}
 GET /documents/{document_id}/chunks
+DELETE /documents/{document_id}
 POST /search
 POST /ask
 GET /ask-logs
@@ -123,6 +125,8 @@ documents：保存文件名、创建时间、chunk 数量
 chunks：保存每个文档拆出来的文本块和 embedding
 ask_logs：保存每次问答、耗时、context 和 sources
 ```
+
+删除文档会同步删除该文档的 chunks；问答日志保留历史快照。
 
 ## 搜索接口
 
