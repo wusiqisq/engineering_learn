@@ -341,13 +341,18 @@ h2 {
 
 .source-chip {
   padding: 7px 10px;
-  border: 1px solid #c8d5e1;
+  border: 1px solid #9ec6d0;
   border-radius: 8px;
-  color: #29465d;
-  background: #f9fbfd;
+  color: #155e75;
+  background: #eef8f7;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
+}
+
+.source-chip:hover {
+  border-color: #155e75;
+  background: #e0f2f1;
 }
 
 .detail-empty {
@@ -404,6 +409,16 @@ h2 {
 
 .chunk-card {
   overflow: hidden;
+}
+
+.chunk-card.highlighted {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+}
+
+.chunk-card.highlighted .chunk-meta {
+  color: #0f4f4a;
+  background: #e0f2f1;
 }
 
 .search-card {

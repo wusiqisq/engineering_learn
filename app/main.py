@@ -71,6 +71,7 @@ class SearchRequest(BaseModel):
 
 
 class SearchResult(BaseModel):
+    citation: int | None = None
     document_id: int
     filename: str
     chunk_id: int
@@ -171,14 +172,15 @@ def ask_question(request: AskRequest) -> AskResponse:
     if not sources:
         return AskResponse(question=question, answer="没有找到可用于回答的资料。", sources=[])
 
+    cited_sources = _add_citations(sources)
     try:
-        answer = _generate_answer(question, sources)
+        answer = _generate_answer(question, cited_sources)
     except DeepSeekConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except DeepSeekAPIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return AskResponse(question=question, answer=answer, sources=sources)
+    return AskResponse(question=question, answer=answer, sources=cited_sources)
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
@@ -227,3 +229,10 @@ def _generate_answer(question: str, sources: list[SearchResult]) -> str:
     if answer_function is not None:
         return answer_function(question, source_payload)
     return generate_answer(question, source_payload)
+
+
+def _add_citations(sources: list[SearchResult]) -> list[SearchResult]:
+    return [
+        source.model_copy(update={"citation": index})
+        for index, source in enumerate(sources, start=1)
+    ]

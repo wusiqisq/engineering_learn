@@ -19,6 +19,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState(null);
+  const [highlightChunkId, setHighlightChunkId] = useState(null);
 
   const totalChars = useMemo(() => {
     if (!result) {
@@ -49,8 +50,20 @@ export default function App() {
     }
   }
 
-  async function loadDocumentDetail(documentId) {
+  useEffect(() => {
+    if (!highlightChunkId || !result) {
+      return;
+    }
+
+    const element = document.getElementById(`chunk-${highlightChunkId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightChunkId, result]);
+
+  async function loadDocumentDetail(documentId, chunkId = null) {
     setActiveDocumentId(documentId);
+    setHighlightChunkId(chunkId);
     setError("");
     try {
       const response = await fetch(`${API_BASE_URL}/documents/${documentId}`);
@@ -98,6 +111,7 @@ export default function App() {
 
       setResult(data);
       setActiveDocumentId(data.id);
+      setHighlightChunkId(null);
       setSearchResults([]);
       setAskResult(null);
       await loadDocuments();
@@ -297,9 +311,9 @@ export default function App() {
                       className="source-chip"
                       key={source.chunk_id}
                       type="button"
-                      onClick={() => loadDocumentDetail(source.document_id)}
+                      onClick={() => loadDocumentDetail(source.document_id, source.chunk_id)}
                     >
-                      {source.filename} / 分块 {source.index} / {source.score.toFixed(3)}
+                      [{source.citation}] {source.filename} / 分块 {source.index} / {source.score.toFixed(3)}
                     </button>
                   ))}
                 </div>
@@ -347,7 +361,11 @@ export default function App() {
 
                 <div className="chunk-list">
                   {result.chunks.map((chunk) => (
-                    <article className="chunk-card" key={chunk.id}>
+                    <article
+                      className={`chunk-card ${highlightChunkId === chunk.id ? "highlighted" : ""}`}
+                      id={`chunk-${chunk.id}`}
+                      key={chunk.id}
+                    >
                       <div className="chunk-meta">
                         <span>分块 {chunk.index}</span>
                         <span>{chunk.char_count} chars</span>

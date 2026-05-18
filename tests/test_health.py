@@ -34,7 +34,7 @@ def fake_embed_texts(texts: list[str]) -> list[list[float]]:
 
 
 def fake_generate_answer(question: str, sources: list[dict]) -> str:
-    return f"answer for {question} from {sources[0]['filename']}"
+    return f"answer for {question} from {sources[0]['filename']} [{sources[0]['citation']}]"
 
 
 def test_health_check() -> None:
@@ -161,7 +161,8 @@ def test_ask_uses_search_results_as_sources() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["question"] == "What does RAG use?"
-    assert data["answer"] == "answer for What does RAG use? from rag.md"
+    assert data["answer"] == "answer for What does RAG use? from rag.md [1]"
+    assert data["sources"][0]["citation"] == 1
     assert data["sources"][0]["filename"] == "rag.md"
 
 

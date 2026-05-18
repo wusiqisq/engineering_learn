@@ -17,6 +17,8 @@
 - `POST /search` 相似度搜索
 - DeepSeek API 回答
 - `POST /ask` RAG 问答
+- 回答引用来源编号
+- 前端来源跳转和 chunk 高亮
 
 ## 后端运行方式
 
@@ -156,9 +158,10 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 ```json
 {
   "question": "这个项目怎么运行测试？",
-  "answer": "根据资料，可以运行 pytest。",
+  "answer": "根据资料，可以运行 pytest。[1]",
   "sources": [
     {
+      "citation": 1,
       "document_id": 1,
       "filename": "README.md",
       "chunk_id": 1,
@@ -201,5 +204,5 @@ pytest
 下一轮可以改进 RAG 质量：
 
 - 把 hash embedding 替换成真正的 embedding 模型
-- 加引用编号和答案来源跳转
 - 增加日志和错误提示
+- 增加对话历史

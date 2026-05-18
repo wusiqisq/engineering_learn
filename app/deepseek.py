@@ -53,8 +53,11 @@ def generate_answer(question: str, sources: list[dict[str, Any]]) -> str:
 
 def _build_messages(question: str, sources: list[dict[str, Any]]) -> list[dict[str, str]]:
     context = "\n\n".join(
-        f"[{index}] 文件：{source['filename']} / 分块：{source['index']} / 相似度：{source['score']}\n{source['text']}"
-        for index, source in enumerate(sources, start=1)
+        (
+            f"[{source['citation']}] 文件：{source['filename']} / "
+            f"分块：{source['index']} / 相似度：{source['score']}\n{source['text']}"
+        )
+        for source in sources
     )
 
     return [
@@ -63,7 +66,7 @@ def _build_messages(question: str, sources: list[dict[str, Any]]) -> list[dict[s
             "content": (
                 "你是一个 RAG 问答助手。只能根据提供的资料回答问题。"
                 "如果资料不足以回答，就明确说资料中没有足够信息。"
-                "回答要简洁，并在必要时引用资料编号。"
+                "回答要简洁。凡是使用资料中的信息，必须在相关句子后标注资料编号，格式如 [1]、[2]。"
             ),
         },
         {
