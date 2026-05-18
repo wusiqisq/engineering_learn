@@ -13,7 +13,23 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def use_test_database(tmp_path: Path) -> None:
     app.state.database_path = tmp_path / "test.db"
+    app.state.embed_texts = fake_embed_texts
     init_database(app.state.database_path)
+
+
+def fake_embed_texts(texts: list[str]) -> list[list[float]]:
+    embeddings = []
+    for text in texts:
+        normalized = text.lower()
+        embeddings.append(
+            [
+                float(normalized.count("python")),
+                float(normalized.count("database") + normalized.count("sqlite")),
+                float(normalized.count("rag")),
+                1.0,
+            ]
+        )
+    return embeddings
 
 
 def test_health_check() -> None:
@@ -91,3 +107,33 @@ def test_get_missing_document_returns_404() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Document not found"
+
+
+def test_search_returns_most_similar_chunks() -> None:
+    content = f"{'Python testing notes. ' * 50}\n\n{'SQLite database storage notes. ' * 50}"
+    client.post(
+        "/documents",
+        files={
+            "file": (
+                "notes.md",
+                content.encode("utf-8"),
+                "text/markdown",
+            )
+        },
+    )
+
+    response = client.post("/search", json={"query": "database", "top_k": 2})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["query"] == "database"
+    assert len(data["results"]) == 2
+    assert "SQLite database" in data["results"][0]["text"]
+    assert data["results"][0]["score"] >= data["results"][1]["score"]
+
+
+def test_search_rejects_blank_query() -> None:
+    response = client.post("/search", json={"query": "   "})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Query cannot be empty"

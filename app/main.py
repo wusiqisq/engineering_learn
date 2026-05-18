@@ -4,17 +4,22 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.chunking import chunk_text
 from app.database import (
     DEFAULT_DATABASE_PATH,
+    deserialize_embedding,
     get_document,
     init_database,
     list_chunks,
+    list_chunks_missing_embeddings,
     list_documents,
+    list_searchable_chunks,
     save_document,
+    update_chunk_embedding,
 )
+from app.embeddings import cosine_similarity, embed_texts
 
 
 SUPPORTED_EXTENSIONS = {".md", ".txt"}
@@ -59,6 +64,26 @@ class DocumentDetail(DocumentSummary):
     chunks: list[DocumentChunk]
 
 
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class SearchResult(BaseModel):
+    document_id: int
+    filename: str
+    chunk_id: int
+    index: int
+    text: str
+    char_count: int
+    score: float
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchResult]
+
+
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {"message": "RAG learning project is running"}
@@ -92,7 +117,8 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentDetail:
     if not chunks:
         raise HTTPException(status_code=400, detail="File is empty")
 
-    document = save_document(filename, chunks, app.state.database_path)
+    embeddings = _embed_texts(chunks)
+    document = save_document(filename, chunks, embeddings, app.state.database_path)
     return DocumentDetail(**document)
 
 
@@ -112,3 +138,48 @@ def get_document_chunks(document_id: int) -> list[DocumentChunk]:
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return [DocumentChunk(**chunk) for chunk in list_chunks(document_id, app.state.database_path)]
+
+
+@app.post("/search", response_model=SearchResponse)
+def search_documents(request: SearchRequest) -> SearchResponse:
+    query = request.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    init_database(app.state.database_path)
+    _ensure_chunk_embeddings()
+
+    query_embedding = _embed_texts([query])[0]
+    scored_results: list[SearchResult] = []
+    for chunk in list_searchable_chunks(app.state.database_path):
+        chunk_embedding = deserialize_embedding(chunk["embedding"])
+        score = cosine_similarity(query_embedding, chunk_embedding)
+        scored_results.append(
+            SearchResult(
+                document_id=chunk["document_id"],
+                filename=chunk["filename"],
+                chunk_id=chunk["chunk_id"],
+                index=chunk["index"],
+                text=chunk["text"],
+                char_count=chunk["char_count"],
+                score=round(score, 6),
+            )
+        )
+
+    scored_results.sort(key=lambda result: result.score, reverse=True)
+    return SearchResponse(query=query, results=scored_results[: request.top_k])
+
+
+def _embed_texts(texts: list[str]) -> list[list[float]]:
+    embedding_function = getattr(app.state, "embed_texts", embed_texts)
+    return embedding_function(texts)
+
+
+def _ensure_chunk_embeddings() -> None:
+    chunks = list_chunks_missing_embeddings(app.state.database_path)
+    if not chunks:
+        return
+
+    embeddings = _embed_texts([chunk["text"] for chunk in chunks])
+    for chunk, embedding in zip(chunks, embeddings, strict=True):
+        update_chunk_embedding(chunk["id"], embedding, app.state.database_path)

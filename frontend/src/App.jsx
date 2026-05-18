@@ -1,4 +1,4 @@
-import { Database, FileText, Loader2, RefreshCw, UploadCloud, XCircle } from "lucide-react";
+import { Database, FileSearch, FileText, Loader2, RefreshCw, Search, UploadCloud, XCircle } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -10,8 +10,11 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState(null);
 
   const totalChars = useMemo(() => {
@@ -92,6 +95,7 @@ export default function App() {
 
       setResult(data);
       setActiveDocumentId(data.id);
+      setSearchResults([]);
       await loadDocuments();
     } catch (uploadError) {
       setError(uploadError.message);
@@ -105,6 +109,38 @@ export default function App() {
     setError("");
     if (inputRef.current) {
       inputRef.current.value = "";
+    }
+  }
+
+  async function handleSearch(event) {
+    event.preventDefault();
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setError("请输入搜索问题");
+      return;
+    }
+
+    setIsSearching(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: trimmedQuery, top_k: 5 }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail ?? "搜索失败");
+      }
+
+      setSearchResults(data.results);
+    } catch (searchError) {
+      setError(searchError.message);
+    } finally {
+      setIsSearching(false);
     }
   }
 
@@ -148,6 +184,22 @@ export default function App() {
 
         {error ? <p className="error-message">{error}</p> : null}
 
+        <form className="search-panel" onSubmit={handleSearch}>
+          <div className="search-input-wrap">
+            <Search size={20} />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="输入问题，搜索最相关的 chunks"
+            />
+          </div>
+          <button className="primary-button search-button" type="submit" disabled={isSearching}>
+            {isSearching ? <Loader2 className="spin" size={18} /> : <FileSearch size={18} />}
+            搜索
+          </button>
+        </form>
+
         <div className="content-grid">
           <aside className="document-library">
             <div className="panel-title">
@@ -180,6 +232,28 @@ export default function App() {
           </aside>
 
           <section className="result-section" aria-live="polite">
+            {searchResults.length > 0 ? (
+              <section className="search-results">
+                <div className="section-heading">
+                  <h2>搜索结果</h2>
+                  <span>{searchResults.length} chunks</span>
+                </div>
+                <div className="chunk-list">
+                  {searchResults.map((result) => (
+                    <article className="chunk-card search-card" key={result.chunk_id}>
+                      <div className="chunk-meta">
+                        <span>
+                          {result.filename} / 分块 {result.index}
+                        </span>
+                        <span>score {result.score.toFixed(3)}</span>
+                      </div>
+                      <pre>{result.text}</pre>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {result ? (
               <>
                 <div className="stats-grid">

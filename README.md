@@ -13,6 +13,8 @@
 - React 上传界面
 - SQLite 保存 documents 和 chunks
 - 前端文档列表和详情查看
+- 本地 hash embedding
+- `POST /search` 相似度搜索
 
 ## 后端运行方式
 
@@ -66,6 +68,7 @@ POST /documents
 GET /documents
 GET /documents/{document_id}
 GET /documents/{document_id}/chunks
+POST /search
 ```
 
 支持：
@@ -104,7 +107,37 @@ data/rag_project.db
 
 ```text
 documents：保存文件名、创建时间、chunk 数量
-chunks：保存每个文档拆出来的文本块
+chunks：保存每个文档拆出来的文本块和 embedding
+```
+
+## 搜索接口
+
+请求：
+
+```json
+{
+  "query": "怎么运行测试",
+  "top_k": 5
+}
+```
+
+返回：
+
+```json
+{
+  "query": "怎么运行测试",
+  "results": [
+    {
+      "document_id": 1,
+      "filename": "README.md",
+      "chunk_id": 1,
+      "index": 1,
+      "text": "chunk text",
+      "char_count": 100,
+      "score": 0.42
+    }
+  ]
+}
 ```
 
 运行测试：
@@ -115,8 +148,8 @@ pytest
 
 ## 下一步
 
-下一轮可以给 chunks 生成 embedding：
+下一轮可以接入真正的大模型回答：
 
-- 为每个 chunk 生成向量
-- 接入向量库或先用本地相似度计算
-- 增加 `POST /search`
+- 把 `POST /search` 的结果作为 context
+- 增加 `POST /ask`
+- 让模型基于检索结果回答
