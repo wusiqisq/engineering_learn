@@ -14,6 +14,8 @@
 - SQLite 保存 documents 和 chunks
 - 前端文档列表和详情查看
 - 本地 hash embedding
+- OpenAI 兼容 embedding API
+- embedding 重建脚本
 - `POST /search` 相似度搜索
 - DeepSeek API 回答
 - `POST /ask` RAG 问答
@@ -169,6 +171,37 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
+## Embedding 配置
+
+默认使用本地 hash embedding：
+
+```text
+EMBEDDING_PROVIDER=hash
+```
+
+如果要使用 OpenAI 兼容 embedding API：
+
+```text
+EMBEDDING_PROVIDER=openai
+EMBEDDING_API_KEY=你的 embedding API Key
+EMBEDDING_BASE_URL=https://api.openai.com/v1
+EMBEDDING_MODEL=text-embedding-3-small
+```
+
+DeepSeek 官方文档目前没有公开 embedding endpoint，所以这里用 OpenAI 兼容接口。你也可以把 `EMBEDDING_BASE_URL` 指向其他兼容 `/embeddings` 的服务。
+
+重建已有 chunks 的 embedding：
+
+```bash
+python scripts/rebuild_embeddings.py
+```
+
+只补缺失的 embedding：
+
+```bash
+python scripts/rebuild_embeddings.py --missing-only
+```
+
 ## 问答接口
 
 请求：
@@ -249,6 +282,5 @@ pytest
 
 下一轮可以改进 RAG 质量：
 
-- 把 hash embedding 替换成真正的 embedding 模型
 - 增加对话历史
 - 增加日志筛选和删除

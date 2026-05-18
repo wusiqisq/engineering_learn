@@ -154,6 +154,19 @@ def list_chunks_missing_embeddings(db_path: Path = DEFAULT_DATABASE_PATH) -> lis
     return [dict(row) for row in rows]
 
 
+def list_all_chunks(db_path: Path = DEFAULT_DATABASE_PATH) -> list[dict[str, Any]]:
+    with _connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, text
+            FROM chunks
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
 def update_chunk_embedding(chunk_id: int, embedding: list[float], db_path: Path = DEFAULT_DATABASE_PATH) -> None:
     with _connect(db_path) as connection:
         connection.execute(
