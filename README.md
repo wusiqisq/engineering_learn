@@ -15,6 +15,8 @@
 - 前端文档列表和详情查看
 - 本地 hash embedding
 - `POST /search` 相似度搜索
+- DeepSeek API 回答
+- `POST /ask` RAG 问答
 
 ## 后端运行方式
 
@@ -69,6 +71,7 @@ GET /documents
 GET /documents/{document_id}
 GET /documents/{document_id}/chunks
 POST /search
+POST /ask
 ```
 
 支持：
@@ -121,6 +124,53 @@ chunks：保存每个文档拆出来的文本块和 embedding
 }
 ```
 
+## DeepSeek 配置
+
+复制示例配置：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env`：
+
+```text
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+```
+
+## 问答接口
+
+请求：
+
+```json
+{
+  "question": "这个项目怎么运行测试？",
+  "top_k": 5
+}
+```
+
+返回：
+
+```json
+{
+  "question": "这个项目怎么运行测试？",
+  "answer": "根据资料，可以运行 pytest。",
+  "sources": [
+    {
+      "document_id": 1,
+      "filename": "README.md",
+      "chunk_id": 1,
+      "index": 1,
+      "text": "chunk text",
+      "char_count": 100,
+      "score": 0.42
+    }
+  ]
+}
+```
+
 返回：
 
 ```json
@@ -148,8 +198,8 @@ pytest
 
 ## 下一步
 
-下一轮可以接入真正的大模型回答：
+下一轮可以改进 RAG 质量：
 
-- 把 `POST /search` 的结果作为 context
-- 增加 `POST /ask`
-- 让模型基于检索结果回答
+- 把 hash embedding 替换成真正的 embedding 模型
+- 加引用编号和答案来源跳转
+- 增加日志和错误提示

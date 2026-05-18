@@ -14,6 +14,7 @@ client = TestClient(app)
 def use_test_database(tmp_path: Path) -> None:
     app.state.database_path = tmp_path / "test.db"
     app.state.embed_texts = fake_embed_texts
+    app.state.generate_answer = fake_generate_answer
     init_database(app.state.database_path)
 
 
@@ -30,6 +31,10 @@ def fake_embed_texts(texts: list[str]) -> list[list[float]]:
             ]
         )
     return embeddings
+
+
+def fake_generate_answer(question: str, sources: list[dict]) -> str:
+    return f"answer for {question} from {sources[0]['filename']}"
 
 
 def test_health_check() -> None:
@@ -137,3 +142,31 @@ def test_search_rejects_blank_query() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Query cannot be empty"
+
+
+def test_ask_uses_search_results_as_sources() -> None:
+    client.post(
+        "/documents",
+        files={
+            "file": (
+                "rag.md",
+                b"RAG uses retrieved context to answer questions.",
+                "text/markdown",
+            )
+        },
+    )
+
+    response = client.post("/ask", json={"question": "What does RAG use?", "top_k": 1})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["question"] == "What does RAG use?"
+    assert data["answer"] == "answer for What does RAG use? from rag.md"
+    assert data["sources"][0]["filename"] == "rag.md"
+
+
+def test_ask_rejects_blank_question() -> None:
+    response = client.post("/ask", json={"question": "   "})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Question cannot be empty"

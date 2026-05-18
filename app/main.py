@@ -19,6 +19,7 @@ from app.database import (
     save_document,
     update_chunk_embedding,
 )
+from app.deepseek import DeepSeekAPIError, DeepSeekConfigError, generate_answer
 from app.embeddings import cosine_similarity, embed_texts
 
 
@@ -84,6 +85,17 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
 
 
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class AskResponse(BaseModel):
+    question: str
+    answer: str
+    sources: list[SearchResult]
+
+
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {"message": "RAG learning project is running"}
@@ -146,6 +158,45 @@ def search_documents(request: SearchRequest) -> SearchResponse:
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+    return SearchResponse(query=query, results=_search_chunks(query, request.top_k))
+
+
+@app.post("/ask", response_model=AskResponse)
+def ask_question(request: AskRequest) -> AskResponse:
+    question = request.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    sources = _search_chunks(question, request.top_k)
+    if not sources:
+        return AskResponse(question=question, answer="没有找到可用于回答的资料。", sources=[])
+
+    try:
+        answer = _generate_answer(question, sources)
+    except DeepSeekConfigError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except DeepSeekAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return AskResponse(question=question, answer=answer, sources=sources)
+
+
+def _embed_texts(texts: list[str]) -> list[list[float]]:
+    embedding_function = getattr(app.state, "embed_texts", embed_texts)
+    return embedding_function(texts)
+
+
+def _ensure_chunk_embeddings() -> None:
+    chunks = list_chunks_missing_embeddings(app.state.database_path)
+    if not chunks:
+        return
+
+    embeddings = _embed_texts([chunk["text"] for chunk in chunks])
+    for chunk, embedding in zip(chunks, embeddings, strict=True):
+        update_chunk_embedding(chunk["id"], embedding, app.state.database_path)
+
+
+def _search_chunks(query: str, top_k: int) -> list[SearchResult]:
     init_database(app.state.database_path)
     _ensure_chunk_embeddings()
 
@@ -167,19 +218,12 @@ def search_documents(request: SearchRequest) -> SearchResponse:
         )
 
     scored_results.sort(key=lambda result: result.score, reverse=True)
-    return SearchResponse(query=query, results=scored_results[: request.top_k])
+    return scored_results[:top_k]
 
 
-def _embed_texts(texts: list[str]) -> list[list[float]]:
-    embedding_function = getattr(app.state, "embed_texts", embed_texts)
-    return embedding_function(texts)
-
-
-def _ensure_chunk_embeddings() -> None:
-    chunks = list_chunks_missing_embeddings(app.state.database_path)
-    if not chunks:
-        return
-
-    embeddings = _embed_texts([chunk["text"] for chunk in chunks])
-    for chunk, embedding in zip(chunks, embeddings, strict=True):
-        update_chunk_embedding(chunk["id"], embedding, app.state.database_path)
+def _generate_answer(question: str, sources: list[SearchResult]) -> str:
+    answer_function = getattr(app.state, "generate_answer", None)
+    source_payload = [source.model_dump() for source in sources]
+    if answer_function is not None:
+        return answer_function(question, source_payload)
+    return generate_answer(question, source_payload)

@@ -1,4 +1,4 @@
-import { Database, FileSearch, FileText, Loader2, RefreshCw, Search, UploadCloud, XCircle } from "lucide-react";
+import { Bot, Database, FileSearch, FileText, Loader2, RefreshCw, Search, Send, UploadCloud, XCircle } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -11,10 +11,13 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [question, setQuestion] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [askResult, setAskResult] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState(null);
 
   const totalChars = useMemo(() => {
@@ -96,6 +99,7 @@ export default function App() {
       setResult(data);
       setActiveDocumentId(data.id);
       setSearchResults([]);
+      setAskResult(null);
       await loadDocuments();
     } catch (uploadError) {
       setError(uploadError.message);
@@ -141,6 +145,38 @@ export default function App() {
       setError(searchError.message);
     } finally {
       setIsSearching(false);
+    }
+  }
+
+  async function handleAsk(event) {
+    event.preventDefault();
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      setError("请输入问题");
+      return;
+    }
+
+    setIsAsking(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: trimmedQuestion, top_k: 5 }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail ?? "问答失败");
+      }
+
+      setAskResult(data);
+    } catch (askError) {
+      setError(askError.message);
+    } finally {
+      setIsAsking(false);
     }
   }
 
@@ -200,6 +236,22 @@ export default function App() {
           </button>
         </form>
 
+        <form className="ask-panel" onSubmit={handleAsk}>
+          <div className="search-input-wrap">
+            <Bot size={20} />
+            <input
+              type="text"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="输入问题，让 DeepSeek 基于资料回答"
+            />
+          </div>
+          <button className="primary-button search-button" type="submit" disabled={isAsking}>
+            {isAsking ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+            提问
+          </button>
+        </form>
+
         <div className="content-grid">
           <aside className="document-library">
             <div className="panel-title">
@@ -232,6 +284,28 @@ export default function App() {
           </aside>
 
           <section className="result-section" aria-live="polite">
+            {askResult ? (
+              <section className="answer-panel">
+                <div className="section-heading">
+                  <h2>DeepSeek 回答</h2>
+                  <span>{askResult.sources.length} sources</span>
+                </div>
+                <div className="answer-body">{askResult.answer}</div>
+                <div className="answer-sources">
+                  {askResult.sources.map((source) => (
+                    <button
+                      className="source-chip"
+                      key={source.chunk_id}
+                      type="button"
+                      onClick={() => loadDocumentDetail(source.document_id)}
+                    >
+                      {source.filename} / 分块 {source.index} / {source.score.toFixed(3)}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {searchResults.length > 0 ? (
               <section className="search-results">
                 <div className="section-heading">

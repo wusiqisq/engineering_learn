@@ -147,7 +147,8 @@ h1 {
   font-weight: 650;
 }
 
-.search-panel {
+.search-panel,
+.ask-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -156,6 +157,11 @@ h1 {
   border: 1px solid #d5dee9;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.ask-panel {
+  border-color: #c7d8ef;
+  background: #fbfdff;
 }
 
 .search-input-wrap {
@@ -297,6 +303,14 @@ h2 {
   margin-bottom: 18px;
 }
 
+.answer-panel {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid #c7d8ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -308,6 +322,31 @@ h2 {
 .section-heading span {
   color: #607488;
   font-size: 13px;
+  font-weight: 700;
+}
+
+.answer-body {
+  white-space: pre-wrap;
+  color: #182230;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.answer-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.source-chip {
+  padding: 7px 10px;
+  border: 1px solid #c8d5e1;
+  border-radius: 8px;
+  color: #29465d;
+  background: #f9fbfd;
+  cursor: pointer;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -406,6 +445,7 @@ pre {
   .header-row,
   .upload-panel,
   .search-panel,
+  .ask-panel,
   .actions,
   .content-grid,
   .stats-grid {
