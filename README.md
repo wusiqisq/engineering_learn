@@ -11,6 +11,8 @@
 - 文档上传接口
 - Markdown/text 文档切块
 - React 上传界面
+- SQLite 保存 documents 和 chunks
+- 前端文档列表和详情查看
 
 ## 后端运行方式
 
@@ -61,6 +63,9 @@ http://127.0.0.1:5173
 
 ```text
 POST /documents
+GET /documents
+GET /documents/{document_id}
+GET /documents/{document_id}/chunks
 ```
 
 支持：
@@ -72,16 +77,34 @@ POST /documents
 
 ```json
 {
+  "id": 1,
   "filename": "demo.md",
+  "created_at": "2026-05-18T11:00:00+00:00",
   "chunk_count": 1,
   "chunks": [
     {
+      "id": 1,
       "index": 1,
       "text": "# Demo\n\ncontent",
       "char_count": 15
     }
   ]
 }
+```
+
+## SQLite 数据
+
+默认数据库文件：
+
+```text
+data/rag_project.db
+```
+
+当前有两张表：
+
+```text
+documents：保存文件名、创建时间、chunk 数量
+chunks：保存每个文档拆出来的文本块
 ```
 
 运行测试：
@@ -92,8 +115,8 @@ pytest
 
 ## 下一步
 
-下一轮可以把 chunks 存起来：
+下一轮可以给 chunks 生成 embedding：
 
-- 用 SQLite 保存文档记录
-- 给每个 chunk 分配稳定 ID
-- 增加 `GET /documents`
+- 为每个 chunk 生成向量
+- 接入向量库或先用本地相似度计算
+- 增加 `POST /search`
