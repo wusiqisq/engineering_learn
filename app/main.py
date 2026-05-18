@@ -12,12 +12,15 @@ from app.chunking import chunk_text
 from app.database import (
     DEFAULT_DATABASE_PATH,
     deserialize_embedding,
+    get_ask_log,
     get_document,
     init_database,
+    list_ask_logs,
     list_chunks,
     list_chunks_missing_embeddings,
     list_documents,
     list_searchable_chunks,
+    save_ask_log,
     save_document,
     update_chunk_embedding,
 )
@@ -112,6 +115,22 @@ class AskResponse(BaseModel):
     debug: AskDebug | None = None
 
 
+class AskLogSummary(BaseModel):
+    id: int
+    question: str
+    answer: str
+    created_at: str
+    search_ms: float
+    llm_ms: float
+    total_ms: float
+    source_count: int
+
+
+class AskLogDetail(AskLogSummary):
+    context: str
+    sources: list[SearchResult]
+
+
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {"message": "RAG learning project is running"}
@@ -126,6 +145,21 @@ def health_check() -> dict[str, str]:
 def get_documents() -> list[DocumentSummary]:
     init_database(app.state.database_path)
     return [DocumentSummary(**document) for document in list_documents(app.state.database_path)]
+
+
+@app.get("/ask-logs", response_model=list[AskLogSummary])
+def get_ask_logs() -> list[AskLogSummary]:
+    init_database(app.state.database_path)
+    return [AskLogSummary(**log) for log in list_ask_logs(app.state.database_path)]
+
+
+@app.get("/ask-logs/{log_id}", response_model=AskLogDetail)
+def get_ask_log_detail(log_id: int) -> AskLogDetail:
+    init_database(app.state.database_path)
+    ask_log = get_ask_log(log_id, app.state.database_path)
+    if ask_log is None:
+        raise HTTPException(status_code=404, detail="Ask log not found")
+    return AskLogDetail(**ask_log)
 
 
 @app.post("/documents", response_model=DocumentDetail)
@@ -215,6 +249,17 @@ def ask_question(request: AskRequest) -> AskResponse:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     total_ms = _elapsed_ms(total_start)
+    source_payload = [source.model_dump() for source in cited_sources]
+    save_ask_log(
+        question=question,
+        answer=answer,
+        search_ms=search_ms,
+        llm_ms=llm_ms,
+        total_ms=total_ms,
+        context=context,
+        sources=source_payload,
+        db_path=app.state.database_path,
+    )
     logger.info(
         "ask question=%r top_k=%s sources=%s scores=%s search_ms=%.2f llm_ms=%.2f total_ms=%.2f",
         question,

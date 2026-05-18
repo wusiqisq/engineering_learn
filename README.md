@@ -21,6 +21,8 @@
 - 前端来源跳转和 chunk 高亮
 - `debug: true` 调试信息
 - 后端 ask 日志
+- SQLite 保存 ask 日志
+- 前端问答日志列表和详情
 
 ## 后端运行方式
 
@@ -76,6 +78,8 @@ GET /documents/{document_id}
 GET /documents/{document_id}/chunks
 POST /search
 POST /ask
+GET /ask-logs
+GET /ask-logs/{log_id}
 ```
 
 支持：
@@ -115,6 +119,7 @@ data/rag_project.db
 ```text
 documents：保存文件名、创建时间、chunk 数量
 chunks：保存每个文档拆出来的文本块和 embedding
+ask_logs：保存每次问答、耗时、context 和 sources
 ```
 
 ## 搜索接口
@@ -207,10 +212,32 @@ DEEPSEEK_MODEL=deepseek-v4-flash
         "score": 0.42
       }
     ]
-    }
   }
 }
 ```
+
+## 问答日志接口
+
+列表：
+
+```text
+GET /ask-logs
+```
+
+详情：
+
+```text
+GET /ask-logs/{log_id}
+```
+
+每条日志保存：
+
+- question
+- answer
+- search_ms / llm_ms / total_ms
+- source_count
+- context
+- sources
 
 运行测试：
 
@@ -224,4 +251,4 @@ pytest
 
 - 把 hash embedding 替换成真正的 embedding 模型
 - 增加对话历史
-- 保存 ask 历史记录
+- 增加日志筛选和删除

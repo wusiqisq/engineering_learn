@@ -33,6 +33,19 @@ def init_database(db_path: Path = DEFAULT_DATABASE_PATH) -> None:
 
             CREATE INDEX IF NOT EXISTS idx_chunks_document_id
                 ON chunks (document_id);
+
+            CREATE TABLE IF NOT EXISTS ask_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                search_ms REAL NOT NULL,
+                llm_ms REAL NOT NULL,
+                total_ms REAL NOT NULL,
+                source_count INTEGER NOT NULL,
+                context TEXT NOT NULL,
+                sources TEXT NOT NULL
+            );
             """
         )
         _ensure_chunk_embedding_column(connection)
@@ -181,6 +194,102 @@ def serialize_embedding(embedding: list[float]) -> str:
 
 def deserialize_embedding(raw_embedding: str) -> list[float]:
     return [float(value) for value in json.loads(raw_embedding)]
+
+
+def save_ask_log(
+    question: str,
+    answer: str,
+    search_ms: float,
+    llm_ms: float,
+    total_ms: float,
+    context: str,
+    sources: list[dict[str, Any]],
+    db_path: Path = DEFAULT_DATABASE_PATH,
+) -> dict[str, Any]:
+    created_at = datetime.now(UTC).isoformat()
+    with _connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO ask_logs (
+                question,
+                answer,
+                created_at,
+                search_ms,
+                llm_ms,
+                total_ms,
+                source_count,
+                context,
+                sources
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                question,
+                answer,
+                created_at,
+                search_ms,
+                llm_ms,
+                total_ms,
+                len(sources),
+                context,
+                json.dumps(sources, ensure_ascii=False),
+            ),
+        )
+
+    ask_log = get_ask_log(cursor.lastrowid, db_path)
+    if ask_log is None:
+        raise RuntimeError("Saved ask log could not be loaded")
+    return ask_log
+
+
+def list_ask_logs(db_path: Path = DEFAULT_DATABASE_PATH) -> list[dict[str, Any]]:
+    with _connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                question,
+                answer,
+                created_at,
+                search_ms,
+                llm_ms,
+                total_ms,
+                source_count
+            FROM ask_logs
+            ORDER BY id DESC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_ask_log(log_id: int, db_path: Path = DEFAULT_DATABASE_PATH) -> dict[str, Any] | None:
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT
+                id,
+                question,
+                answer,
+                created_at,
+                search_ms,
+                llm_ms,
+                total_ms,
+                source_count,
+                context,
+                sources
+            FROM ask_logs
+            WHERE id = ?
+            """,
+            (log_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    ask_log = dict(row)
+    ask_log["sources"] = json.loads(ask_log["sources"])
+    return ask_log
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:

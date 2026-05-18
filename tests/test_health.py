@@ -191,6 +191,42 @@ def test_ask_can_return_debug_info() -> None:
     assert data["debug"]["sources"][0]["citation"] == 1
 
 
+def test_ask_saves_log_with_context_and_sources() -> None:
+    client.post(
+        "/documents",
+        files={
+            "file": (
+                "rag.md",
+                b"RAG logs save question context and sources.",
+                "text/markdown",
+            )
+        },
+    )
+
+    ask_response = client.post("/ask", json={"question": "What do logs save?", "top_k": 1, "debug": True})
+    assert ask_response.status_code == 200
+
+    list_response = client.get("/ask-logs")
+    assert list_response.status_code == 200
+    logs = list_response.json()
+    assert logs[0]["question"] == "What do logs save?"
+    assert logs[0]["source_count"] == 1
+
+    detail_response = client.get(f"/ask-logs/{logs[0]['id']}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["answer"] == "answer for What do logs save? from rag.md [1]"
+    assert "[1] 文件：rag.md" in detail["context"]
+    assert detail["sources"][0]["filename"] == "rag.md"
+
+
+def test_missing_ask_log_returns_404() -> None:
+    response = client.get("/ask-logs/999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Ask log not found"
+
+
 def test_ask_rejects_blank_question() -> None:
     response = client.post("/ask", json={"question": "   "})
 

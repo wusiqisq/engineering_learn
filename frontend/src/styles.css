@@ -260,7 +260,20 @@ h2 {
   padding: 12px;
 }
 
-.document-row {
+.log-title {
+  border-top: 1px solid #e7edf3;
+}
+
+.log-list {
+  display: grid;
+  max-height: 360px;
+  overflow-y: auto;
+  gap: 8px;
+  padding: 12px;
+}
+
+.document-row,
+.log-row {
   display: grid;
   width: 100%;
   gap: 6px;
@@ -274,17 +287,20 @@ h2 {
 }
 
 .document-row.active,
-.document-row:hover {
+.document-row:hover,
+.log-row:hover {
   border-color: #167c80;
   background: #eef8f7;
 }
 
-.document-row span {
+.document-row span,
+.log-row span {
   overflow-wrap: anywhere;
   font-weight: 750;
 }
 
-.document-row small {
+.document-row small,
+.log-row small {
   color: #607488;
   font-size: 12px;
 }
@@ -330,6 +346,19 @@ h2 {
   color: #182230;
   font-size: 15px;
   line-height: 1.7;
+}
+
+.log-question {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #29465d;
+  background: #eaf1f7;
+  font-weight: 750;
+}
+
+.log-stats {
+  padding: 12px 0 0;
 }
 
 .answer-sources {

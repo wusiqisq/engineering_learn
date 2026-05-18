@@ -1,4 +1,4 @@
-import { Bot, Database, FileSearch, FileText, Loader2, RefreshCw, Search, Send, UploadCloud, XCircle } from "lucide-react";
+import { Bot, Clock, Database, FileSearch, FileText, Loader2, RefreshCw, Search, Send, UploadCloud, XCircle } from "lucide-react";
 import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -8,6 +8,8 @@ export default function App() {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [askLogs, setAskLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -16,6 +18,7 @@ export default function App() {
   const [askResult, setAskResult] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [activeDocumentId, setActiveDocumentId] = useState(null);
@@ -30,6 +33,7 @@ export default function App() {
 
   useEffect(() => {
     loadDocuments();
+    loadAskLogs();
   }, []);
 
   async function loadDocuments() {
@@ -47,6 +51,40 @@ export default function App() {
       setError(loadError.message);
     } finally {
       setIsLoadingDocuments(false);
+    }
+  }
+
+  async function loadAskLogs() {
+    setIsLoadingLogs(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/ask-logs`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail ?? "读取日志列表失败");
+      }
+
+      setAskLogs(data);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  }
+
+  async function loadAskLogDetail(logId) {
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/ask-logs/${logId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail ?? "读取日志详情失败");
+      }
+
+      setSelectedLog(data);
+    } catch (loadError) {
+      setError(loadError.message);
     }
   }
 
@@ -187,6 +225,8 @@ export default function App() {
       }
 
       setAskResult(data);
+      setSelectedLog(null);
+      await loadAskLogs();
     } catch (askError) {
       setError(askError.message);
     } finally {
@@ -295,9 +335,64 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            <div className="panel-title log-title">
+              <div>
+                <Clock size={18} />
+                <h2>问答日志</h2>
+              </div>
+              <button className="ghost-button" type="button" onClick={loadAskLogs} aria-label="Refresh ask logs">
+                {isLoadingLogs ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
+              </button>
+            </div>
+
+            <div className="log-list">
+              {askLogs.length === 0 && !isLoadingLogs ? <p className="empty-state">还没有问答日志</p> : null}
+              {askLogs.map((log) => (
+                <button className="log-row" key={log.id} type="button" onClick={() => loadAskLogDetail(log.id)}>
+                  <span>{log.question}</span>
+                  <small>
+                    {log.source_count} sources / {log.total_ms} ms
+                  </small>
+                </button>
+              ))}
+            </div>
           </aside>
 
           <section className="result-section" aria-live="polite">
+            {selectedLog ? (
+              <section className="answer-panel">
+                <div className="section-heading">
+                  <h2>日志详情</h2>
+                  <span>{selectedLog.created_at}</span>
+                </div>
+                <div className="log-question">{selectedLog.question}</div>
+                <div className="answer-body">{selectedLog.answer}</div>
+                <div className="debug-stats log-stats">
+                  <span>search {selectedLog.search_ms} ms</span>
+                  <span>llm {selectedLog.llm_ms} ms</span>
+                  <span>total {selectedLog.total_ms} ms</span>
+                  <span>{selectedLog.source_count} sources</span>
+                </div>
+                <div className="answer-sources">
+                  {selectedLog.sources.map((source) => (
+                    <button
+                      className="source-chip"
+                      key={source.chunk_id}
+                      type="button"
+                      onClick={() => loadDocumentDetail(source.document_id, source.chunk_id)}
+                    >
+                      [{source.citation}] {source.filename} / 分块 {source.index} / {source.score.toFixed(3)}
+                    </button>
+                  ))}
+                </div>
+                <details className="debug-panel">
+                  <summary>保存的 context</summary>
+                  <pre className="debug-context">{selectedLog.context}</pre>
+                </details>
+              </section>
+            ) : null}
+
             {askResult ? (
               <section className="answer-panel">
                 <div className="section-heading">
